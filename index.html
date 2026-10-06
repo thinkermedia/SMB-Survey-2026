@@ -33,6 +33,7 @@
   .grid-table td:first-child{text-align:left;font-size:14px;padding-right:10px;}
   .grid-table input{accent-color:var(--blue);width:16px;height:16px;}
   .grid-block-label{font-weight:600;color:var(--navy);font-size:14px;margin:18px 0 6px;}
+  .q2heading{font-weight:700;color:var(--navy);font-size:17px;margin:26px 0 2px;padding-top:18px;border-top:1px solid var(--border);line-height:1.4;}
   .dualselect-wrap{display:flex;gap:18px;}
   .dualselect-col{flex:1;}
   .dualselect-col h4{font-size:13px;color:var(--navy);margin:0 0 10px;text-align:center;}
@@ -189,16 +190,19 @@ const QUESTIONS = [
     {code:97,label:"Other",hasOther:true},
   ]},
 { id:"A5", section:"A", eyebrow:"A. Business & Growth Outlook", type:"dualgrid",
-  text:"How important is it for your company's growth to build trust with/in the following? How well has your company established trust with/in the following?",
+  text:"How important is it for your company's growth to build trust with/in the following?",
   sub:"",
+  q2:"How well has your company established trust with/in the following?",
   part1Label:"Importance (1 = Not at all important, 5 = Extremely important)",
   part2Label:"How well established (1 = Not at all well, 5 = Extremely well)",
   rows:[{code:1,label:"Customers"},{code:2,label:"Employees"},{code:3,label:"Suppliers"},
         {code:4,label:"Financial institutions/lenders"},{code:5,label:"Investors/shareholders"},
         {code:6,label:"Regulators/government"},{code:7,label:"AI systems and technologies"}]},
 { id:"A6", section:"A", eyebrow:"A. Business & Growth Outlook", type:"multigrid", max:3,
-  text:"Which of the following offer the greatest growth opportunities for your organization? How well does your company take advantage of these opportunities?",
-  sub:"Select up to 3 for the first part; rate all options 1-5 for the second part (1 = Not at all well, 5 = Very well)",
+  text:"Which of the following offer the greatest growth opportunities for your organization?",
+  sub:"Select up to 3",
+  q2:"How well does your company take advantage of these opportunities?",
+  q2sub:"Rate the options you selected above (1 = Not at all well, 5 = Very well)",
   options:[
     {code:1,label:"Knowing which technologies to implement and when"},
     {code:2,label:"Implementing the right business models"},
@@ -301,8 +305,9 @@ const QUESTIONS = [
     {code:97,label:"Other",hasOther:true},
   ]},
 { id:"B8", section:"B", eyebrow:"B. AI Investment and Deployment", type:"dualgrid",
-  text:"How important is trust in AI among the following for business growth? What is the level of trust among the following in your company?",
+  text:"How important is trust in AI among the following for business growth?",
   sub:"",
+  q2:"What is the level of trust among the following in your company?",
   part1Label:"Importance (1 = Not at all important, 5 = Extremely important)",
   part2Label:"Level of trust (1 = Very low, 5 = Very high)",
   rows:[{code:1,label:"Trust in AI outcomes"},{code:2,label:"Trust in AI security"},
@@ -398,7 +403,7 @@ const QUESTIONS = [
     {code:4,label:"Capital structure (e.g., going public, taking loans)"},
     {code:5,label:"Supply chain (e.g., new vendors)"},
     {code:6,label:"Adding new products and lines of business"},
-    {code:7,label:"Exiting new products and lines of business"},
+    {code:7,label:"Exiting products and lines of business"},
     {code:8,label:"Entering new geographical markets"},
   ]},
 { id:"C7", section:"C", eyebrow:"C. Decision Time and Execution", type:"multi", max:3,
@@ -634,6 +639,10 @@ function renderDualGrid(q, body){
   const lbl1 = document.createElement("div"); lbl1.className="grid-block-label"; lbl1.textContent = q.part1Label;
   body.appendChild(lbl1);
   body.appendChild(buildSimpleGrid(q.id, "p1", q.rows, answers[q.id].p1));
+  if(q.q2){
+    const q2heading = document.createElement("div"); q2heading.className="q2heading"; q2heading.textContent = q.q2;
+    body.appendChild(q2heading);
+  }
   const lbl2 = document.createElement("div"); lbl2.className="grid-block-label"; lbl2.textContent = q.part2Label;
   body.appendChild(lbl2);
   body.appendChild(buildSimpleGrid(q.id, "p2", q.rows, answers[q.id].p2));
@@ -686,9 +695,17 @@ function renderMultiGrid(q, body){
     box.oninput=(e)=>{otherText[q.id]=e.target.value;};
     body.appendChild(box);
   }
-  const lbl2 = document.createElement("div"); lbl2.className="grid-block-label"; lbl2.textContent="How well does your company take advantage of these opportunities? (1 = Not at all well, 5 = Very well)";
-  body.appendChild(lbl2);
-  body.appendChild(buildSimpleGrid(q.id, "rate", q.options.map(o=>({code:o.code,label:o.label})), answers[q.id].ratings));
+  const selCodes = answers[q.id].sel || [];
+  if(selCodes.length > 0){
+    if(q.q2){
+      const q2heading = document.createElement("div"); q2heading.className="q2heading"; q2heading.textContent = q.q2;
+      body.appendChild(q2heading);
+    }
+    const lbl2 = document.createElement("div"); lbl2.className="grid-block-label"; lbl2.textContent = q.q2sub || "";
+    body.appendChild(lbl2);
+    const selectedOptsForRating = q.options.filter(o=>selCodes.includes(o.code)).map(o=>({code:o.code,label:o.label}));
+    body.appendChild(buildSimpleGrid(q.id, "rate", selectedOptsForRating, answers[q.id].ratings));
+  }
 }
 
 function renderDualSelect(q, body){
@@ -787,7 +804,7 @@ function isAnswered(q){
     case "multi": return Array.isArray(v) && v.length > 0;
     case "grid": return v && q.rows.every(r=>v[r.code]!==undefined);
     case "dualgrid": return v && v.p1 && v.p2 && q.rows.every(r=>v.p1[r.code]!==undefined && v.p2[r.code]!==undefined);
-    case "multigrid": return v && Array.isArray(v.sel) && v.sel.length>0 && q.options.every(o=>v.ratings[o.code]!==undefined);
+    case "multigrid": return v && Array.isArray(v.sel) && v.sel.length>0 && v.sel.every(code=>v.ratings[code]!==undefined);
     case "dualselect": return v && v.revenue!==null && v.earnings!==null;
     case "dualmulti": return v && Array.isArray(v.col1) && v.col1.length>0 && Array.isArray(v.col2) && v.col2.length>0;
     case "dualscale": return v && v.col1!==null && v.col2!==null;
