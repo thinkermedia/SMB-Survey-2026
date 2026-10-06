@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SMB Confidence &amp; Growth Study</title>
+<style>
+  :root{
+    --blue:#013D5B; --navy:#013D5B; --gold:#CC2427; --bg:#F5F7FA; --card:#FFFFFF; --border:#E1E5EA; --text:#1A2430; --muted:#6B7684;
+  }
+  *{box-sizing:border-box;}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:0;}
+  .wrap{max-width:720px;margin:0 auto;padding:48px 20px 60px;}
+  .progress-outer{height:6px;background:var(--border);border-radius:3px;overflow:hidden;margin-bottom:28px;}
+  .progress-inner{height:100%;background:var(--gold);width:0%;transition:width .25s ease;}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:28px 28px 24px;box-shadow:0 1px 3px rgba(16,24,40,.06);}
+  .qeyebrow{font-size:12px;color:var(--gold);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;}
+  .qtext{font-size:19px;font-weight:600;color:var(--navy);line-height:1.4;margin-bottom:6px;}
+  .qsub{font-size:13px;color:var(--muted);margin-bottom:18px;}
+  .options{display:flex;flex-direction:column;gap:10px;margin-bottom:8px;}
+  .opt{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:9px;padding:13px 15px;cursor:pointer;transition:.15s;}
+  .opt:hover{border-color:var(--blue);background:#EAF0F3;}
+  .opt.selected{border-color:var(--blue);background:#DCE7EC;}
+  .opt input{accent-color:var(--blue);width:17px;height:17px;flex-shrink:0;}
+  .opt label{cursor:pointer;font-size:15px;flex:1;}
+  select.dropdown, textarea.openend, input.otherbox{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:9px;font-size:15px;font-family:inherit;}
+  textarea.openend{min-height:120px;resize:vertical;}
+  .otherbox{margin-top:8px;display:none;}
+  .grid-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px;}
+  .grid-table th{color:var(--muted);font-weight:600;font-size:12px;padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);}
+  .grid-table th:first-child{text-align:left;}
+  .grid-table td{padding:10px 4px;text-align:center;border-bottom:1px solid #F0F2F5;}
+  .grid-table td:first-child{text-align:left;font-size:14px;padding-right:10px;}
+  .grid-table input{accent-color:var(--blue);width:16px;height:16px;}
+  .grid-block-label{font-weight:600;color:var(--navy);font-size:14px;margin:18px 0 6px;}
+  .dualselect-wrap{display:flex;gap:18px;}
+  .dualselect-col{flex:1;}
+  .dualselect-col h4{font-size:13px;color:var(--navy);margin:0 0 10px;text-align:center;}
+  .maxnote{font-size:12px;color:var(--muted);margin-bottom:10px;}
+  .nav{display:flex;justify-content:space-between;align-items:center;margin-top:22px;}
+  button{font-family:inherit;font-size:15px;font-weight:600;border-radius:9px;padding:12px 22px;border:none;cursor:pointer;}
+  .btn-next{background:var(--blue);color:#fff;}
+  .btn-next:disabled{background:#9FB9C6;cursor:not-allowed;}
+  .btn-back{background:transparent;color:var(--muted);}
+  .error-msg{color:var(--gold);font-size:13px;margin-top:6px;display:none;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .intro-text{font-size:15px;color:var(--muted);line-height:1.6;margin-bottom:20px;}
+  .end-wrap{text-align:center;padding:60px 20px;}
+  .end-wrap h2{color:var(--navy);}
+  .scale11{display:flex;flex-direction:column;gap:8px;}
+  .scale11 .opt{padding:10px 14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
+
+  <div id="screen-intro" class="screen active">
+    <div class="card">
+      <div class="qtext">SMB Confidence &amp; Growth Study</div>
+      <div class="intro-text">Inc. Business Media is conducting this survey about small and mid-sized companies (SMBs) on behalf of a leading financial firm. We are interested in learning about SMB leaders' confidence in the economic environment and business growth, capital investment plans, technology implementation and decision-making. Thank you in advance for your time and interest in our study. All results will be reported in aggregate only.</div>
+      <div class="nav"><span></span><button class="btn-next" onclick="startSurvey()">Begin Survey</button></div>
+    </div>
+  </div>
+
+  <div id="screen-question" class="screen">
+    <div class="card">
+      <div class="qeyebrow" id="qEyebrow"></div>
+      <div class="qtext" id="qText"></div>
+      <div class="qsub" id="qSub"></div>
+      <div id="qBody"></div>
+      <div class="error-msg" id="qError">Please answer this question before continuing.</div>
+      <div class="nav">
+        <button class="btn-back" id="btnBack" onclick="goBack()">Back</button>
+        <button class="btn-next" id="btnNext" onclick="goNext()">Next</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="screen-end" class="screen">
+    <div class="end-wrap">
+      <h2 id="endTitle">Thank you</h2>
+      <p id="endMsg"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Capital One Risk and Reward Survey - question bank
+// Codes: 97 = Other (please specify), 98 = N/a / None, 99 = Unknown / Prefer not to say
+// Programmed as written in the client QNR (no added piping/skip logic beyond what the doc states)
+
+const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware",
+"Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine",
+"Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada",
+"New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma",
+"Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont",
+"Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
+
+const QUESTIONS = [
+// ---------------- SCREENER ----------------
+{ id:"S1", section:"Screener", eyebrow:"Demographics", type:"single",
+  text:"Approximately what is your business's annual revenue?", sub:"Select one",
+  options:[
+    {code:1,label:"Under $1 million",terminate:true},
+    {code:2,label:"Between $1 million and $5 million"},
+    {code:3,label:"Between $5 million and $10 million"},
+    {code:4,label:"Between $10 million and $25 million"},
+    {code:5,label:"Between $25 million and $50 million"},
+    {code:6,label:"Between $50 million and $100 million"},
+    {code:7,label:"Between $100 million and $250 million"},
+    {code:8,label:"Between $250 million and $500 million"},
+    {code:9,label:"More than $500 million",terminate:true},
+  ]},
+{ id:"S2", section:"Screener", eyebrow:"Demographics", type:"single",
+  text:"What is your position at your company?", sub:"Select one",
+  options:[
+    {code:1,label:"Owner/Partner/Principal"},
+    {code:2,label:"President"},
+    {code:3,label:"Chief Executive Officer/Chief Operating Officer"},
+    {code:4,label:"Chief Financial Officer"},
+    {code:5,label:"Chief Operating officer"},
+    {code:6,label:"Other C-suite"},
+    {code:7,label:"EVP/SVP"},
+    {code:97,label:"Other",exclude:true,hasOther:true},
+  ]},
+{ id:"S3", section:"Screener", eyebrow:"Demographics", type:"single",
+  text:"What is your company's primary business?", sub:"Select one",
+  options:[
+    {code:1,label:"Agriculture"},{code:2,label:"Automotive"},{code:3,label:"Auto Repair"},
+    {code:4,label:"Business Services"},{code:5,label:"Communications"},{code:6,label:"Construction"},
+    {code:7,label:"Engineering"},{code:8,label:"Financial Services"},{code:9,label:"Insurance"},
+    {code:10,label:"Manufacturing"},{code:11,label:"Physician Services"},
+    {code:12,label:"Real Estate/Property Management"},{code:13,label:"Restaurant"},
+    {code:14,label:"Retail trade"},{code:15,label:"Transportation"},{code:16,label:"Travel and entertainment"},
+    {code:17,label:"Wholesale trade"},
+    {code:18,label:"Other professional services (accounting, legal, education, etc.)"},
+    {code:19,label:"Other health/social services (veterinarian, dentists, nursing, etc.)"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"S4", section:"Screener", eyebrow:"Demographics", type:"dropdown",
+  text:"Which best describes your location within the United States?", sub:"Select one",
+  options: US_STATES.map((s,i)=>({code:i+1,label:s})) },
+{ id:"S5", section:"Screener", eyebrow:"Demographics", type:"single",
+  text:"Which best describes your age group?", sub:"",
+  options:[
+    {code:1,label:"Gen Z (14-29)"},{code:2,label:"Millennial (30-45)"},{code:3,label:"Gen X (46-61)"},
+    {code:4,label:"Baby boomer (62-80)"},{code:5,label:"Silent generation 80+"},
+  ]},
+{ id:"S6", section:"Screener", eyebrow:"Demographics", type:"single",
+  text:"Which best describes most of your workforce?", sub:"",
+  options:[{code:1,label:"In-person"},{code:2,label:"Hybrid"},{code:3,label:"Remote"}]},
+
+// ---------------- SECTION A ----------------
+{ id:"A1", section:"A", eyebrow:"A. Business & Growth Outlook", type:"grid",
+  text:"What is your level of confidence in the following areas over the next 12 months?",
+  sub:"1 = Very low, 5 = Very high",
+  scale:["1","2","3","4","5"], scaleLabels:["Very low","","","","Very high"],
+  rows:[{code:1,label:"Global economy"},{code:2,label:"U.S. economy"},{code:3,label:"Your industry"},
+        {code:4,label:"Your company"},{code:5,label:"Your career"}]},
+{ id:"A2", section:"A", eyebrow:"A. Business & Growth Outlook", type:"dualselect",
+  text:"What is your organization's revenue/earnings outlook over the next 12 months?", sub:"Select one in each column",
+  col1Label:"Revenue over the next 12 months", col2Label:"Earnings over the next 12 months",
+  options:[
+    {code:1,label:"Negative 20% or lower"},{code:2,label:"Negative 10-19.99%"},{code:3,label:"Negative 5-9.99%"},
+    {code:4,label:"Negative 0.01-4.99%"},{code:5,label:"0 growth"},{code:6,label:"Positive 0.1%-4.99%"},
+    {code:7,label:"Positive 5-9.99%"},{code:8,label:"Positive 10-19.99%"},{code:9,label:"Positive 20% or higher"},
+  ]},
+{ id:"A3", section:"A", eyebrow:"A. Business & Growth Outlook", type:"single",
+  text:"What best describes your growth stance over the next 12 months?", sub:"Select one",
+  options:[
+    {code:1,label:"Preservation/staying in business"},
+    {code:2,label:"Resilience/keeping up with the competition"},
+    {code:3,label:"Continued growth (moderate increases)"},
+    {code:4,label:"Aggressive growth"},
+    {code:5,label:"Disruptive/transformational growth"},
+  ]},
+{ id:"A4", section:"A", eyebrow:"A. Business & Growth Outlook", type:"multi", max:3,
+  text:"Which of the following factors will have the greatest impact on your business growth in 2027?",
+  sub:"Select up to 3",
+  options:[
+    {code:1,label:"Stakeholders' trust in the company"},{code:2,label:"Strategic deployment of AI"},
+    {code:3,label:"The rise of agentic AI (e.g., agentic shopping)"},{code:4,label:"Regulatory environment"},
+    {code:5,label:"Safety and compliance"},
+    {code:6,label:"The overall state of the economy (interest rates, customer demand)"},
+    {code:7,label:"New generation of customers"},{code:8,label:"Subscription-based revenue models"},
+    {code:9,label:"Hyper-personalization technologies"},{code:10,label:"Fractional workforce"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"A5", section:"A", eyebrow:"A. Business & Growth Outlook", type:"dualgrid",
+  text:"How important is it for your company's growth to build trust with/in the following? How well has your company established trust with/in the following?",
+  sub:"",
+  part1Label:"Importance (1 = Not at all important, 5 = Extremely important)",
+  part2Label:"How well established (1 = Not at all well, 5 = Extremely well)",
+  rows:[{code:1,label:"Customers"},{code:2,label:"Employees"},{code:3,label:"Suppliers"},
+        {code:4,label:"Financial institutions/lenders"},{code:5,label:"Investors/shareholders"},
+        {code:6,label:"Regulators/government"},{code:7,label:"AI systems and technologies"}]},
+{ id:"A6", section:"A", eyebrow:"A. Business & Growth Outlook", type:"multigrid", max:3,
+  text:"Which of the following offer the greatest growth opportunities for your organization? How well does your company take advantage of these opportunities?",
+  sub:"Select up to 3 for the first part; rate all options 1-5 for the second part (1 = Not at all well, 5 = Very well)",
+  options:[
+    {code:1,label:"Knowing which technologies to implement and when"},
+    {code:2,label:"Implementing the right business models"},
+    {code:3,label:"Staying ahead of the competition"},
+    {code:4,label:"Mastering the use of available resources most efficiently"},
+    {code:5,label:"Attracting, keeping and deploying the right talent"},
+    {code:6,label:"Pivoting when necessary"},
+    {code:7,label:"Understanding the when, how and where to scale"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"A7", section:"A", eyebrow:"A. Business & Growth Outlook", type:"multi", max:3,
+  text:"What are the top financial risks to your business's growth?", sub:"Select up to 3",
+  options:[
+    {code:1,label:"Interest rates"},{code:2,label:"Inflation"},{code:3,label:"Tariffs"},
+    {code:4,label:"Lack of access to capital/investors"},
+    {code:5,label:"Weak capital position/high levels of debt"},
+    {code:6,label:"Selecting wrong financing options"},
+    {code:7,label:"Overinvesting in workforce (over hiring/overpaying)"},
+    {code:8,label:"Overinvesting in technology"},
+    {code:9,label:"Wrong investment strategies (e.g., M&A)"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"OE_A", section:"A", eyebrow:"Optional", type:"open",
+  text:"Please share with us your thoughts about the current conditions for growing your business. What are your concerns, challenges and opportunities?",
+  sub:"Optional" },
+
+// ---------------- SECTION B ----------------
+{ id:"B1", section:"B", eyebrow:"B. AI Investment and Deployment", type:"single",
+  text:"Has your company established a dedicated budget for AI?", sub:"Select one",
+  options:[
+    {code:1,label:"Yes, a significant dedicated budget"},
+    {code:2,label:"Yes, a modest dedicated budget"},
+    {code:3,label:"No, AI spending comes from existing or re-purposed budgets"},
+    {code:4,label:"No, but we are considering establishing a dedicated AI budget"},
+    {code:5,label:"No, and we do not currently plan to"},
+  ]},
+{ id:"B2", section:"B", eyebrow:"B. AI Investment and Deployment", type:"single",
+  text:"How will your investments in AI change over the next 12 months compared to the last 12 months?", sub:"Select one",
+  options:[
+    {code:1,label:"Significant decrease (25% or more)"},{code:2,label:"Decrease (up to 25%)"},
+    {code:3,label:"No change"},{code:4,label:"Increase (up to 25%)"},
+    {code:5,label:"Significant increase (25% or more)"},
+  ]},
+{ id:"B3", section:"B", eyebrow:"B. AI Investment and Deployment", type:"multi", max:2,
+  text:"What will be the top areas of AI investment over the next 12 months?", sub:"Select up to 2",
+  options:[
+    {code:1,label:"Customer support and sales"},{code:2,label:"Core business workflows"},
+    {code:3,label:"Data analytics"},{code:4,label:"Back-office automation"},
+    {code:5,label:"Consulting service/external partners"},{code:6,label:"Hiring internal talent"},
+    {code:7,label:"Cybersecurity mitigation"},{code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"B4", section:"B", eyebrow:"B. AI Investment and Deployment", type:"single",
+  text:"How would you best describe the financial return on investment (ROI) your company has achieved from its AI initiatives?", sub:"Select one",
+  options:[
+    {code:1,label:"Positive and measurable: We have achieved measurable financial returns that exceed our total investment"},
+    {code:2,label:"Positive but unquantified: Clear operational benefits, but we have not translated them into specific financial metrics"},
+    {code:3,label:"Break-even: The financial or operational value generated so far roughly equals what we have invested"},
+    {code:4,label:"Negative ROI / Net loss: We have invested capital and resources, but the measurable business value has not yet matched the costs"},
+    {code:5,label:"Too early to tell: We have deployed AI tools but have not yet completed a formal review cycle to evaluate ROI"},
+    {code:6,label:"Not applicable: We have not yet deployed or invested in any AI initiatives"},
+  ]},
+{ id:"B5", section:"B", eyebrow:"B. AI Investment and Deployment", type:"multi", max:5,
+  text:"Which of the following do you consider the top benefits of AI in your company?", sub:"Select up to 5",
+  options:[
+    {code:1,label:"More informed, data-driven decision-making"},
+    {code:2,label:"Increased efficiency/productivity/profitability gains"},
+    {code:3,label:"Faster speed of business/ability to scale faster"},
+    {code:4,label:"Avoidance of mistakes and \"human error\""},
+    {code:5,label:"Optimized workflows/processes/collaboration"},
+    {code:6,label:"Elevated customer experience"},
+    {code:7,label:"Increased security"},
+    {code:8,label:"Ability to do more with fewer people"},
+    {code:9,label:"Improving employees' work-life balance (e.g., more flexible work options)"},
+    {code:10,label:"Improving employee work experience"},
+    {code:11,label:"Increasing time for higher-value work"},
+    {code:98,label:"Not applicable"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"B6", section:"B", eyebrow:"B. AI Investment and Deployment", type:"single",
+  text:"How advanced is your company in terms of deployment of AI?", sub:"Select one",
+  options:[
+    {code:1,label:"No AI plans: Not developing or planning to develop AI programs"},
+    {code:2,label:"Beginner: Developing AI programs for some functions"},
+    {code:3,label:"Advanced beginner: Implementing AI programs for some functions"},
+    {code:4,label:"Intermediate: Implementing AI programs for most functions"},
+    {code:5,label:"Competent: Implementing AI programs company-wide"},
+    {code:6,label:"Advanced: Creating measurable business value from AI programs in some functions"},
+    {code:7,label:"Very advanced: Creating measurable business value from AI programs across multiple functions"},
+    {code:8,label:"Leading: Creating measurable business value from AI programs company-wide"},
+  ]},
+{ id:"B7", section:"B", eyebrow:"B. AI Investment and Deployment", type:"multi", max:3,
+  text:"What are the top technology risks to your business growth?", sub:"Select up to 3",
+  options:[
+    {code:1,label:"Selecting wrong technologies"},{code:2,label:"Moving too fast with new technologies"},
+    {code:3,label:"Moving too slow with new technologies"},
+    {code:4,label:"Inability to integrate new and legacy technologies"},
+    {code:5,label:"Inability to show ROI on technology investment"},
+    {code:6,label:"Cybersecurity risks relating to data breaches"},
+    {code:7,label:"Risks associated with AI technology (bias, governance gaps, untrustworthy outcomes)"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"B8", section:"B", eyebrow:"B. AI Investment and Deployment", type:"dualgrid",
+  text:"How important is trust in AI among the following for business growth? What is the level of trust among the following in your company?",
+  sub:"",
+  part1Label:"Importance (1 = Not at all important, 5 = Extremely important)",
+  part2Label:"Level of trust (1 = Very low, 5 = Very high)",
+  rows:[{code:1,label:"Trust in AI outcomes"},{code:2,label:"Trust in AI security"},
+        {code:3,label:"Trust between the human employee and AI"},
+        {code:4,label:"Trust between the customer and AI"},
+        {code:5,label:"Trust between leadership and AI"}]},
+{ id:"B9", section:"B", eyebrow:"B. AI Investment and Deployment", type:"grid",
+  text:"Please rate your agreement with the following statements about AI's existential risks:",
+  sub:"1 = Do not agree at all, 5 = Completely agree",
+  scale:["1","2","3","4","5"],
+  rows:[
+    {code:1,label:"I am very concerned about the existential risks posed by AI"},
+    {code:2,label:"When planning the deployment of AI, our company considers existential risks"},
+    {code:3,label:"Apart from the top tech companies (the so-called frontier labs), most companies do not have much influence over the existential risks posed by AI"},
+    {code:4,label:"Risk prevention should be handled by a global alliance of corporations and governments"},
+    {code:5,label:"The pace of AI development should be slowed down"},
+  ]},
+{ id:"B10", section:"B", eyebrow:"B. AI Investment and Deployment", type:"grid",
+  text:"Please rate your agreement with the following statements",
+  sub:"1 = Not at all significant, 5 = Very significant",
+  scale:["1","2","3","4","5"],
+  rows:[
+    {code:1,label:"AI makes it possible for small and midsize companies to compete with much larger organizations"},
+    {code:2,label:"Trust in AI is key to business success"},
+    {code:3,label:"Younger generations of employees have more trust in AI than older generations"},
+    {code:4,label:"Younger generations of customers have more trust in AI than older generations"},
+    {code:5,label:"I would rather miss an opportunity than make a wrong investment in AI"},
+    {code:6,label:"I'm clear about the risks and rewards of investing in AI"},
+  ]},
+{ id:"OE_B", section:"B", eyebrow:"Optional", type:"open",
+  text:"Please share with us your thoughts about the importance of AI for growing your business. Is it a game changer?",
+  sub:"Optional" },
+
+// ---------------- SECTION C ----------------
+{ id:"C1", section:"C", eyebrow:"C. Decision Time and Execution", type:"multi", max:2,
+  text:"Which of the following phases of decision-making is the most challenging?", sub:"Select up to 2",
+  options:[
+    {code:1,label:"Identifying the problem or opportunity"},{code:2,label:"Gathering information and insights"},
+    {code:3,label:"Setting goals (what success looks like)"},
+    {code:4,label:"Building and evaluating the paths forward"},{code:5,label:"Selecting the best path forward"},
+    {code:6,label:"Executing on the decision"},{code:7,label:"Measuring success"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"C2", section:"C", eyebrow:"C. Decision Time and Execution", type:"single",
+  text:"Which of the following best describes your approach to making major business decisions?", sub:"Select one",
+  options:[
+    {code:1,label:"We act aggressively when we see an opportunity"},
+    {code:2,label:"We act when the potential reward outweighs the risk"},
+    {code:3,label:"We take a selective, case-by-case approach"},
+    {code:4,label:"We generally wait until risks are better understood"},
+    {code:5,label:"We largely avoid major new investments"},
+  ]},
+{ id:"C3", section:"C", eyebrow:"C. Decision Time and Execution", type:"dualmulti",
+  text:"How and by whom are major business decisions made in your company?", sub:"",
+  col1Label:"In what way are major decisions made in your company", col1Sub:"Select up to 3", col1Max:3,
+  col1Options:[
+    {code:1,label:"Unanimous consent"},{code:2,label:"Majority vote"},{code:3,label:"Randomly"},
+    {code:4,label:"Autocratically"},{code:5,label:"Democratically"},
+    {code:6,label:"Delegated (by one specific expert or committee)"},
+    {code:7,label:"Distributed (different small teams make choices for their own specific areas)"},
+    {code:8,label:"Data-Driven / Algorithmic"},
+  ],
+  col2Label:"Who makes major decisions in your company", col2Sub:"Select up to 2", col2Max:2,
+  col2Options:[
+    {code:1,label:"Founder / Majority shareholder"},{code:2,label:"Chief Executive Officer (CEO)"},
+    {code:3,label:"C-Suite Executives (CFO, COO, CMO, etc.)"},{code:4,label:"Board of Directors"},
+    {code:5,label:"External Advisors (consultants, legal, investment bankers)"},
+    {code:6,label:"Business unit / Department heads"},
+  ]},
+{ id:"C4", section:"C", eyebrow:"C. Decision Time and Execution", type:"single",
+  text:"When faced with a major business decision, which factor typically has the greatest influence on whether you move forward?", sub:"Select one",
+  options:[
+    {code:1,label:"Expected financial return"},{code:2,label:"Potential for business growth"},
+    {code:3,label:"Ability to reduce costs or improve efficiency"},{code:4,label:"Competitive pressure"},
+    {code:5,label:"Customer demand"},{code:6,label:"Available cash/working capital"},
+    {code:7,label:"Level of risk involved"},{code:8,label:"Confidence in the economic outlook"},
+    {code:97,label:"Something else",hasOther:true},
+  ]},
+{ id:"C5", section:"C", eyebrow:"C. Decision Time and Execution", type:"multi", max:2,
+  text:"What would you like to change about your decision-making?", sub:"Select up to 2",
+  options:[
+    {code:1,label:"I would like to act sooner"},{code:2,label:"I would like to invest more"},
+    {code:3,label:"I would like to invest less"},{code:4,label:"I would like to wait longer"},
+    {code:5,label:"I would like to gather more information first"},
+    {code:6,label:"I would like to involve different people in the decision"},
+    {code:7,label:"I would make decisions in exactly the same way I do now"},
+  ]},
+{ id:"C6", section:"C", eyebrow:"C. Decision Time and Execution", type:"multi", max:3,
+  text:"Which of the following areas do you find the most challenging in terms of decision-making?", sub:"Select up to 3",
+  options:[
+    {code:1,label:"Human resources (e.g., layoffs)"},{code:2,label:"Human resources (hiring)"},
+    {code:3,label:"Digital transformation (e.g., automation and AI)"},
+    {code:4,label:"Capital structure (e.g., going public, taking loans)"},
+    {code:5,label:"Supply chain (e.g., new vendors)"},
+    {code:6,label:"Adding new products and lines of business"},
+    {code:7,label:"Exiting new products and lines of business"},
+    {code:8,label:"Entering new geographical markets"},
+  ]},
+{ id:"C7", section:"C", eyebrow:"C. Decision Time and Execution", type:"multi", max:3,
+  text:"Which traits are the most necessary for building and leading a small and midsized company?", sub:"Select up to 3",
+  options:[
+    {code:1,label:"Risk tolerance"},{code:2,label:"Personal fortitude"},{code:3,label:"High energy"},
+    {code:4,label:"Strategic thinking/vision"},{code:5,label:"Attention to detail"},
+    {code:6,label:"Time management"},{code:7,label:"Surrounding yourself with the right people"},
+    {code:8,label:"Being able to fail fast"},{code:9,label:"Charisma"},{code:10,label:"Thinking on your feet"},
+    {code:97,label:"Other",hasOther:true},
+  ]},
+{ id:"C8", section:"C", eyebrow:"C. Decision Time and Execution", type:"dualscale",
+  text:"To what degree is the growth of your business dependent on external factors (e.g., the economy, geopolitics, regulation) versus your decision-making? To what degree is the growth of your business dependent on your intuition versus data analytics (AI)?",
+  sub:"Select one option on each scale below",
+  col1Label:"External factors vs. your decision-making",
+  col1Options:[
+    {code:1,label:"100% my decisions"},{code:2,label:"10% external, 90% my decision"},
+    {code:3,label:"20%/80%"},{code:4,label:"30%/70%"},{code:5,label:"40%/60%"},{code:6,label:"50%/50%"},
+    {code:7,label:"60%/50%"},{code:8,label:"70%/30%"},{code:9,label:"80%/20%"},
+    {code:10,label:"90% external, 10% my decision"},{code:11,label:"100% external"},
+  ],
+  col2Label:"Intuition vs. data analytics (AI)",
+  col2Options:[
+    {code:1,label:"100% my intuition"},{code:2,label:"10% AI, 90% intuition"},
+    {code:3,label:"20%/80%"},{code:4,label:"30%/70%"},{code:5,label:"40%/60%"},{code:6,label:"50%/50%"},
+    {code:7,label:"60%/50%"},{code:8,label:"70%/30%"},{code:9,label:"80%/20%"},
+    {code:10,label:"90% AI, 10% intuition"},{code:11,label:"100% AI"},
+  ]},
+{ id:"OE_C", section:"C", eyebrow:"Optional", type:"open",
+  text:"Please share with us your thoughts about decision-making. Is it getting easier or more difficult, and why?",
+  sub:"Optional" },
+];
+
+// Capital One Risk and Reward Survey - rendering engine
+// Deployment: set SCRIPT_URL to the Apps Script web app URL before publishing.
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzy9gzJllztJ2ZNRsnPRDE3BqU4hFzKQRnagUUxZyNPzvE02qAMIcAc80aM1zeN7fV/exec";
+
+let current = -1; // -1 = intro
+const answers = {}; // qid -> value(s)
+const otherText = {}; // qid -> other/"specify" text
+const ref = getRef();
+
+function getRef(){
+  const params = new URLSearchParams(window.location.search);
+  return params.get("ref") || "no-ref";
+}
+
+function htmlesc(s){
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function startSurvey(){
+  checkLockThenStart();
+}
+
+async function checkLockThenStart(){
+  try{
+    const res = await fetch(SCRIPT_URL + "?action=checkLock&ref=" + encodeURIComponent(ref));
+    const data = await res.json();
+    if(data && data.used){
+      showEnd("This link has already been used", "If you believe this is an error, please contact the research team.");
+      return;
+    }
+  }catch(e){ /* fail open if lock check errors, local lock still applies below */ }
+
+  if(localStorage.getItem("survey_used_" + ref)){
+    showEnd("This link has already been used", "If you believe this is an error, please contact the research team.");
+    return;
+  }
+  current = 0;
+  showScreen("screen-question");
+  renderQuestion();
+}
+
+function showScreen(id){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+
+function updateProgress(){
+  const pct = Math.round(((current+1) / QUESTIONS.length) * 100);
+  document.getElementById("progressBar").style.width = pct + "%";
+}
+
+function renderQuestion(){
+  const q = QUESTIONS[current];
+  document.getElementById("qEyebrow").textContent = q.eyebrow || "";
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("qSub").textContent = q.sub || "";
+  document.getElementById("qError").style.display = "none";
+  document.getElementById("btnBack").style.visibility = current === 0 ? "hidden" : "visible";
+  document.getElementById("btnNext").textContent = current === QUESTIONS.length - 1 ? "Submit" : "Next";
+  updateProgress();
+
+  const body = document.getElementById("qBody");
+  body.innerHTML = "";
+
+  switch(q.type){
+    case "single": renderSingle(q, body); break;
+    case "multi": renderMulti(q, body); break;
+    case "dropdown": renderDropdown(q, body); break;
+    case "grid": renderGrid(q, body); break;
+    case "dualgrid": renderDualGrid(q, body); break;
+    case "dualselect": renderDualSelect(q, body); break;
+    case "dualmulti": renderDualMulti(q, body); break;
+    case "dualscale": renderDualScale(q, body); break;
+    case "multigrid": renderMultiGrid(q, body); break;
+    case "open": renderOpen(q, body); break;
+  }
+}
+
+function makeOptionRow(q, opt, checked, inputType, groupName, onchange){
+  const div = document.createElement("div");
+  div.className = "opt" + (checked ? " selected" : "");
+  const input = document.createElement("input");
+  input.type = inputType;
+  input.name = groupName;
+  input.value = opt.code;
+  input.checked = checked;
+  input.id = groupName + "_" + opt.code;
+  input.onchange = onchange;
+  const label = document.createElement("label");
+  label.htmlFor = input.id;
+  label.textContent = opt.label;
+  div.appendChild(input); div.appendChild(label);
+  div.onclick = (e)=>{ if(e.target.tagName !== "INPUT"){ input.click(); } };
+  return div;
+}
+
+function renderSingle(q, body){
+  const wrap = document.createElement("div"); wrap.className="options";
+  const sel = answers[q.id];
+  q.options.forEach(opt=>{
+    const row = makeOptionRow(q, opt, sel===opt.code, "radio", q.id, ()=>{
+      answers[q.id] = opt.code;
+      renderQuestion();
+    });
+    wrap.appendChild(row);
+  });
+  body.appendChild(wrap);
+  renderOtherBoxIfNeeded(q, body, sel);
+}
+
+function renderOtherBoxIfNeeded(q, body, selectedCode){
+  const selOpt = (q.options||[]).find(o=>o.code===selectedCode);
+  if(selOpt && selOpt.hasOther){
+    const box = document.createElement("input");
+    box.type = "text"; box.className = "otherbox"; box.style.display="block";
+    box.placeholder = "Please specify";
+    box.value = otherText[q.id] || "";
+    box.oninput = (e)=>{ otherText[q.id] = e.target.value; };
+    body.appendChild(box);
+  }
+}
+
+function renderMulti(q, body){
+  const wrap = document.createElement("div"); wrap.className="options";
+  const note = document.createElement("div"); note.className="maxnote";
+  note.textContent = "Select up to " + q.max;
+  body.appendChild(note);
+  const sel = answers[q.id] || [];
+  q.options.forEach(opt=>{
+    const checked = sel.includes(opt.code);
+    const row = makeOptionRow(q, opt, checked, "checkbox", q.id+"_"+opt.code, (e)=>{
+      let cur = answers[q.id] || [];
+      if(e.target.checked){
+        if(cur.length >= q.max){ e.target.checked = false; return; }
+        cur = [...cur, opt.code];
+      } else {
+        cur = cur.filter(c=>c!==opt.code);
+      }
+      answers[q.id] = cur;
+      renderQuestion();
+    });
+    wrap.appendChild(row);
+  });
+  body.appendChild(wrap);
+  const anyOtherSelected = q.options.find(o=>o.hasOther && (sel||[]).includes(o.code));
+  if(anyOtherSelected){
+    const box = document.createElement("input");
+    box.type="text"; box.className="otherbox"; box.style.display="block";
+    box.placeholder="Please specify";
+    box.value = otherText[q.id] || "";
+    box.oninput = (e)=>{ otherText[q.id]=e.target.value; };
+    body.appendChild(box);
+  }
+}
+
+function renderDropdown(q, body){
+  const sel = document.createElement("select"); sel.className="dropdown";
+  const blank = document.createElement("option"); blank.value=""; blank.textContent="Select...";
+  sel.appendChild(blank);
+  q.options.forEach(opt=>{
+    const o = document.createElement("option");
+    o.value = opt.code; o.textContent = opt.label;
+    if(answers[q.id]===opt.code) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = (e)=>{ answers[q.id] = Number(e.target.value); };
+  body.appendChild(sel);
+}
+
+function renderGrid(q, body){
+  const table = document.createElement("table"); table.className="grid-table";
+  const thead = document.createElement("tr");
+  thead.appendChild(document.createElement("th"));
+  q.scale.forEach((s,i)=>{
+    const th = document.createElement("th");
+    th.textContent = s + (q.scaleLabels && q.scaleLabels[i] ? (" " + q.scaleLabels[i]) : "");
+    thead.appendChild(th);
+  });
+  table.appendChild(thead);
+  if(!answers[q.id]) answers[q.id] = {};
+  q.rows.forEach(row=>{
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = row.label; tr.appendChild(td0);
+    q.scale.forEach((s,i)=>{
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.type="radio"; input.name = q.id+"_row"+row.code;
+      input.value = i+1;
+      input.checked = answers[q.id][row.code] === (i+1);
+      input.onchange = ()=>{ answers[q.id][row.code] = i+1; };
+      td.appendChild(input); tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  body.appendChild(table);
+}
+
+function renderDualGrid(q, body){
+  if(!answers[q.id]) answers[q.id] = {p1:{}, p2:{}};
+  const lbl1 = document.createElement("div"); lbl1.className="grid-block-label"; lbl1.textContent = q.part1Label;
+  body.appendChild(lbl1);
+  body.appendChild(buildSimpleGrid(q.id, "p1", q.rows, answers[q.id].p1));
+  const lbl2 = document.createElement("div"); lbl2.className="grid-block-label"; lbl2.textContent = q.part2Label;
+  body.appendChild(lbl2);
+  body.appendChild(buildSimpleGrid(q.id, "p2", q.rows, answers[q.id].p2));
+}
+
+function buildSimpleGrid(qid, part, rows, store){
+  const table = document.createElement("table"); table.className="grid-table";
+  const thead = document.createElement("tr"); thead.appendChild(document.createElement("th"));
+  [1,2,3,4,5].forEach(n=>{ const th=document.createElement("th"); th.textContent=n; thead.appendChild(th); });
+  table.appendChild(thead);
+  rows.forEach(row=>{
+    const tr = document.createElement("tr");
+    const td0 = document.createElement("td"); td0.textContent = row.label; tr.appendChild(td0);
+    [1,2,3,4,5].forEach(n=>{
+      const td = document.createElement("td");
+      const input = document.createElement("input");
+      input.type="radio"; input.name = qid+"_"+part+"_row"+row.code;
+      input.checked = store[row.code]===n;
+      input.onchange = ()=>{ store[row.code]=n; };
+      td.appendChild(input); tr.appendChild(td);
+    });
+    table.appendChild(tr);
+  });
+  return table;
+}
+
+function renderMultiGrid(q, body){
+  if(!answers[q.id]) answers[q.id] = {sel:[], ratings:{}};
+  const note = document.createElement("div"); note.className="maxnote"; note.textContent="Select up to "+q.max;
+  body.appendChild(note);
+  const wrap = document.createElement("div"); wrap.className="options";
+  q.options.forEach(opt=>{
+    const checked = (answers[q.id].sel||[]).includes(opt.code);
+    const row = makeOptionRow(q, opt, checked, "checkbox", q.id+"_sel_"+opt.code, (e)=>{
+      let cur = answers[q.id].sel || [];
+      if(e.target.checked){
+        if(cur.length >= q.max){ e.target.checked = false; return; }
+        cur = [...cur, opt.code];
+      } else { cur = cur.filter(c=>c!==opt.code); }
+      answers[q.id].sel = cur;
+      renderQuestion();
+    });
+    wrap.appendChild(row);
+  });
+  body.appendChild(wrap);
+  const selOther = q.options.find(o=>o.hasOther && (answers[q.id].sel||[]).includes(o.code));
+  if(selOther){
+    const box=document.createElement("input"); box.type="text"; box.className="otherbox"; box.style.display="block";
+    box.placeholder="Please specify"; box.value=otherText[q.id]||"";
+    box.oninput=(e)=>{otherText[q.id]=e.target.value;};
+    body.appendChild(box);
+  }
+  const lbl2 = document.createElement("div"); lbl2.className="grid-block-label"; lbl2.textContent="How well does your company take advantage of these opportunities? (1 = Not at all well, 5 = Very well)";
+  body.appendChild(lbl2);
+  body.appendChild(buildSimpleGrid(q.id, "rate", q.options.map(o=>({code:o.code,label:o.label})), answers[q.id].ratings));
+}
+
+function renderDualSelect(q, body){
+  if(!answers[q.id]) answers[q.id] = {revenue:null, earnings:null};
+  const wrap = document.createElement("div"); wrap.className="dualselect-wrap";
+  ["revenue","earnings"].forEach((key,idx)=>{
+    const col = document.createElement("div"); col.className="dualselect-col";
+    const h = document.createElement("h4"); h.textContent = idx===0 ? q.col1Label : q.col2Label;
+    col.appendChild(h);
+    const optWrap = document.createElement("div"); optWrap.className="options";
+    q.options.forEach(opt=>{
+      const checked = answers[q.id][key] === opt.code;
+      const row = makeOptionRow(q, opt, checked, "radio", q.id+"_"+key, ()=>{
+        answers[q.id][key] = opt.code;
+        renderQuestion();
+      });
+      optWrap.appendChild(row);
+    });
+    col.appendChild(optWrap);
+    wrap.appendChild(col);
+  });
+  body.appendChild(wrap);
+}
+
+function renderDualMulti(q, body){
+  if(!answers[q.id]) answers[q.id] = {col1:[], col2:[]};
+  const wrap = document.createElement("div"); wrap.className="dualselect-wrap";
+  [1,2].forEach(n=>{
+    const key = "col"+n;
+    const label = n===1 ? q.col1Label : q.col2Label;
+    const sub = n===1 ? q.col1Sub : q.col2Sub;
+    const max = n===1 ? q.col1Max : q.col2Max;
+    const opts = n===1 ? q.col1Options : q.col2Options;
+    const col = document.createElement("div"); col.className="dualselect-col";
+    const h = document.createElement("h4"); h.textContent = label + " (" + sub + ")";
+    col.appendChild(h);
+    const optWrap = document.createElement("div"); optWrap.className="options";
+    opts.forEach(opt=>{
+      const checked = (answers[q.id][key]||[]).includes(opt.code);
+      const row = makeOptionRow(q, opt, checked, "checkbox", q.id+"_"+key+"_"+opt.code, (e)=>{
+        let cur = answers[q.id][key] || [];
+        if(e.target.checked){
+          if(cur.length >= max){ e.target.checked = false; return; }
+          cur = [...cur, opt.code];
+        } else { cur = cur.filter(c=>c!==opt.code); }
+        answers[q.id][key] = cur;
+        renderQuestion();
+      });
+      optWrap.appendChild(row);
+    });
+    col.appendChild(optWrap);
+    wrap.appendChild(col);
+  });
+  body.appendChild(wrap);
+}
+
+function renderDualScale(q, body){
+  if(!answers[q.id]) answers[q.id] = {col1:null, col2:null};
+  const wrap = document.createElement("div"); wrap.className="dualselect-wrap";
+  [1,2].forEach(n=>{
+    const key = "col"+n;
+    const label = n===1 ? q.col1Label : q.col2Label;
+    const opts = n===1 ? q.col1Options : q.col2Options;
+    const col = document.createElement("div"); col.className="dualselect-col";
+    const h = document.createElement("h4"); h.textContent = label;
+    col.appendChild(h);
+    const optWrap = document.createElement("div"); optWrap.className="scale11";
+    opts.forEach(opt=>{
+      const checked = answers[q.id][key] === opt.code;
+      const row = makeOptionRow(q, opt, checked, "radio", q.id+"_"+key, ()=>{
+        answers[q.id][key] = opt.code;
+        renderQuestion();
+      });
+      optWrap.appendChild(row);
+    });
+    col.appendChild(optWrap);
+    wrap.appendChild(col);
+  });
+  body.appendChild(wrap);
+}
+
+function renderOpen(q, body){
+  const ta = document.createElement("textarea"); ta.className="openend";
+  ta.placeholder = "Your answer (optional)";
+  ta.value = answers[q.id] || "";
+  ta.oninput = (e)=>{ answers[q.id] = e.target.value; };
+  body.appendChild(ta);
+}
+
+function isAnswered(q){
+  if(q.type === "open") return true; // optional, always valid
+  const v = answers[q.id];
+  switch(q.type){
+    case "single": return v !== undefined && v !== null;
+    case "dropdown": return v !== undefined && v !== null;
+    case "multi": return Array.isArray(v) && v.length > 0;
+    case "grid": return v && q.rows.every(r=>v[r.code]!==undefined);
+    case "dualgrid": return v && v.p1 && v.p2 && q.rows.every(r=>v.p1[r.code]!==undefined && v.p2[r.code]!==undefined);
+    case "multigrid": return v && Array.isArray(v.sel) && v.sel.length>0 && q.options.every(o=>v.ratings[o.code]!==undefined);
+    case "dualselect": return v && v.revenue!==null && v.earnings!==null;
+    case "dualmulti": return v && Array.isArray(v.col1) && v.col1.length>0 && Array.isArray(v.col2) && v.col2.length>0;
+    case "dualscale": return v && v.col1!==null && v.col2!==null;
+    default: return true;
+  }
+}
+
+function goBack(){
+  if(current <= 0) return;
+  current--;
+  renderQuestion();
+}
+
+function goNext(){
+  const q = QUESTIONS[current];
+  if(!isAnswered(q)){
+    document.getElementById("qError").style.display = "block";
+    return;
+  }
+
+  // Terminate / exclude logic (S1, S2 only, per QNR)
+  if(q.id === "S1" || q.id === "S2"){
+    const selOpt = q.options.find(o=>o.code === answers[q.id]);
+    if(selOpt && (selOpt.terminate || selOpt.exclude)){
+      finishSurvey(selOpt.terminate ? "terminate" : "excluded");
+      return;
+    }
+  }
+
+  if(current === QUESTIONS.length - 1){
+    finishSurvey("complete");
+    return;
+  }
+  current++;
+  renderQuestion();
+}
+
+// Builds two parallel flattened rows (Labels + Values) sharing identical headers.
+// Headers lead with the QNR question code plus the full verbatim question/row text, per TMG SOP.
+// Labels row carries verbatim option text; Values row carries the numeric codes from questions.js.
+function buildFlatRows(status){
+  const labels = {}; const values = {};
+  const meta = ["ref","timestamp_IST","status"];
+  labels.ref = values.ref = ref;
+  const ts = new Date().toLocaleString("en-IN", {timeZone:"Asia/Kolkata"});
+  labels.timestamp_IST = values.timestamp_IST = ts;
+  labels.status = values.status = status;
+
+  function setPair(header, labelVal, valueVal){
+    labels[header] = labelVal;
+    values[header] = valueVal;
+  }
+
+  QUESTIONS.forEach(q=>{
+    const v = answers[q.id];
+    if(v === undefined) return;
+
+    if(q.type === "single" || q.type === "dropdown"){
+      const opt = (q.options||[]).find(o=>o.code===v);
+      setPair(q.id + " - " + q.text, opt ? opt.label : "", opt ? opt.code : "");
+      if(opt && opt.hasOther) setPair(q.id + "_other - Please specify", otherText[q.id]||"", otherText[q.id]||"");
+
+    } else if(q.type === "multi"){
+      q.options.forEach(opt=>{
+        const selected = (v||[]).includes(opt.code);
+        setPair(q.id + "_" + opt.code + " - " + opt.label, selected ? opt.label : "", selected ? 1 : 0);
+      });
+      const anyOther = q.options.find(o=>o.hasOther);
+      if(anyOther) setPair(q.id + "_other - Please specify", otherText[q.id]||"", otherText[q.id]||"");
+
+    } else if(q.type === "grid"){
+      q.rows.forEach(r=>{
+        const val = (v && v[r.code]) || "";
+        setPair(q.id + "_" + r.code + " - " + r.label, val, val);
+      });
+
+    } else if(q.type === "dualgrid"){
+      q.rows.forEach(r=>{
+        const val1 = (v && v.p1[r.code]) || "";
+        const val2 = (v && v.p2[r.code]) || "";
+        setPair(q.id + "a_" + r.code + " - " + r.label + " (" + q.part1Label + ")", val1, val1);
+        setPair(q.id + "b_" + r.code + " - " + r.label + " (" + q.part2Label + ")", val2, val2);
+      });
+
+    } else if(q.type === "multigrid"){
+      q.options.forEach(opt=>{
+        const selected = (v && v.sel||[]).includes(opt.code);
+        const rate = (v && v.ratings[opt.code]) || "";
+        setPair(q.id + "_sel_" + opt.code + " - " + opt.label, selected ? opt.label : "", selected ? 1 : 0);
+        setPair(q.id + "_rate_" + opt.code + " - " + opt.label + " (rating)", rate, rate);
+      });
+      const anyOther = q.options.find(o=>o.hasOther);
+      if(anyOther) setPair(q.id + "_other - Please specify", otherText[q.id]||"", otherText[q.id]||"");
+
+    } else if(q.type === "dualselect"){
+      const r = (q.options||[]).find(o=>o.code === (v&&v.revenue));
+      const e = (q.options||[]).find(o=>o.code === (v&&v.earnings));
+      setPair(q.id + "_revenue - " + q.col1Label, r?r.label:"", r?r.code:"");
+      setPair(q.id + "_earnings - " + q.col2Label, e?e.label:"", e?e.code:"");
+
+    } else if(q.type === "dualmulti"){
+      q.col1Options.forEach(opt=>{
+        const selected = (v&&v.col1||[]).includes(opt.code);
+        setPair(q.id+"_col1_"+opt.code+" - "+q.col1Label+" - "+opt.label, selected?opt.label:"", selected?1:0);
+      });
+      q.col2Options.forEach(opt=>{
+        const selected = (v&&v.col2||[]).includes(opt.code);
+        setPair(q.id+"_col2_"+opt.code+" - "+q.col2Label+" - "+opt.label, selected?opt.label:"", selected?1:0);
+      });
+
+    } else if(q.type === "dualscale"){
+      const c1 = (q.col1Options||[]).find(o=>o.code===(v&&v.col1));
+      const c2 = (q.col2Options||[]).find(o=>o.code===(v&&v.col2));
+      setPair(q.id + "_col1 - " + q.col1Label, c1?c1.label:"", c1?c1.code:"");
+      setPair(q.id + "_col2 - " + q.col2Label, c2?c2.label:"", c2?c2.code:"");
+
+    } else if(q.type === "open"){
+      setPair(q.id + " - " + q.text, v || "", v || "");
+    }
+  });
+  return {labels, values};
+}
+
+async function finishSurvey(status){
+  const {labels, values} = buildFlatRows(status);
+  try{
+    await fetch(SCRIPT_URL, {
+      method: "POST",
+      headers: {"Content-Type":"text/plain;charset=utf-8"},
+      body: JSON.stringify({action:"submit", status, ref, labelsRow: labels, valuesRow: values}),
+    });
+  }catch(e){ /* network errors should not block showing an end screen */ }
+
+  localStorage.setItem("survey_used_" + ref, "1");
+
+  if(status === "terminate" || status === "excluded"){
+    showEnd("Thank you for your interest", "At this time, you don't qualify for this particular survey. We appreciate you taking the time to start it.");
+  } else {
+    showEnd("Thank you!", "Your responses have been recorded. We appreciate your time and insights.");
+  }
+}
+
+function showEnd(title, msg){
+  document.getElementById("endTitle").textContent = title;
+  document.getElementById("endMsg").textContent = msg;
+  showScreen("screen-end");
+}
+
+</script>
+</body>
+</html>
