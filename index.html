@@ -26,11 +26,13 @@
   select.dropdown, textarea.openend, input.otherbox{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:9px;font-size:15px;font-family:inherit;}
   textarea.openend{min-height:120px;resize:vertical;}
   .otherbox{margin-top:8px;display:none;}
-  .grid-table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:18px;}
+  .table-scroll{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:18px;}
+  .grid-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;margin-bottom:0;}
+  .grid-table th:first-child, .grid-table td:first-child{width:40%;}
   .grid-table th{color:var(--muted);font-weight:600;font-size:12px;padding:6px 4px;text-align:center;border-bottom:1px solid var(--border);}
   .grid-table th:first-child{text-align:left;}
   .grid-table td{padding:10px 4px;text-align:center;border-bottom:1px solid #F0F2F5;}
-  .grid-table td:first-child{text-align:left;font-size:14px;padding-right:10px;}
+  .grid-table td:first-child{text-align:left;font-size:13px;padding-right:6px;word-wrap:break-word;}
   .grid-table input{accent-color:var(--blue);width:16px;height:16px;}
   .grid-block-label{font-weight:600;color:var(--navy);font-size:14px;margin:18px 0 6px;}
   .q2heading{font-weight:700;color:var(--navy);font-size:17px;margin:26px 0 2px;padding-top:18px;border-top:1px solid var(--border);line-height:1.4;}
@@ -631,7 +633,9 @@ function renderGrid(q, body){
     });
     table.appendChild(tr);
   });
-  body.appendChild(table);
+  const scrollWrap = document.createElement("div"); scrollWrap.className = "table-scroll";
+  scrollWrap.appendChild(table);
+  body.appendChild(scrollWrap);
 }
 
 function renderDualGrid(q, body){
@@ -666,7 +670,9 @@ function buildSimpleGrid(qid, part, rows, store){
     });
     table.appendChild(tr);
   });
-  return table;
+  const scrollWrap = document.createElement("div"); scrollWrap.className = "table-scroll";
+  scrollWrap.appendChild(table);
+  return scrollWrap;
 }
 
 function renderMultiGrid(q, body){
