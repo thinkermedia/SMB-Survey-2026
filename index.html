@@ -446,11 +446,25 @@ const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyzy9gzJllztJ2ZNRsnP
 let current = -1; // -1 = intro
 const answers = {}; // qid -> value(s)
 const otherText = {}; // qid -> other/"specify" text
-const ref = getRef();
+
+// Two link modes:
+// 1. Unique link: https://.../?ref=LIVE551 - one-time-use, checked client + server side.
+// 2. Universal/open link: https://.../  (no ?ref= at all) - unlimited use, no lock check.
+//    Each submission still gets its own auto-generated ref (OPEN-<timestamp>-<random>)
+//    so rows are distinguishable in the Sheet and never collide, but the link itself
+//    can be reused by any number of respondents, which is the whole point of sharing
+//    one link with the full respondent universe instead of seeding unique ones.
+const isOpenLink = !(new URLSearchParams(window.location.search)).has("ref");
+const ref = isOpenLink ? generateOpenRef() : getRef();
 
 function getRef(){
   const params = new URLSearchParams(window.location.search);
   return params.get("ref") || "no-ref";
+}
+
+function generateOpenRef(){
+  const rand = Math.random().toString(36).slice(2, 8);
+  return "OPEN-" + Date.now() + "-" + rand;
 }
 
 function htmlesc(s){
@@ -458,6 +472,13 @@ function htmlesc(s){
 }
 
 function startSurvey(){
+  if(isOpenLink){
+    // Universal link: skip all lock checks, every visitor gets a fresh ref.
+    current = 0;
+    showScreen("screen-question");
+    renderQuestion();
+    return;
+  }
   checkLockThenStart();
 }
 
