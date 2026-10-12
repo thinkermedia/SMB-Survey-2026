@@ -21,7 +21,7 @@
   .opt{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:9px;padding:13px 15px;cursor:pointer;transition:.15s;}
   .opt:hover{border-color:var(--blue);background:#EAF0F3;}
   .opt.selected{border-color:var(--blue);background:#DCE7EC;}
-  .opt input{accent-color:var(--blue);width:17px;height:17px;flex-shrink:0;}
+  .opt input{accent-color:var(--blue);width:24px;height:24px;flex-shrink:0;}
   .opt label{cursor:pointer;font-size:15px;flex:1;}
   select.dropdown, textarea.openend, input.otherbox{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:9px;font-size:15px;font-family:inherit;}
   textarea.openend{min-height:120px;resize:vertical;}
@@ -33,7 +33,7 @@
   .grid-table th:first-child{text-align:left;}
   .grid-table td{padding:10px 4px;text-align:center;border-bottom:1px solid #F0F2F5;}
   .grid-table td:first-child{text-align:left;font-size:13px;padding-right:6px;word-wrap:break-word;}
-  .grid-table input{accent-color:var(--blue);width:16px;height:16px;}
+  .grid-table input{accent-color:var(--blue);width:21px;height:21px;}
   .grid-block-label{font-weight:600;color:var(--navy);font-size:14px;margin:18px 0 6px;}
   .q2heading{font-weight:700;color:var(--navy);font-size:17px;margin:26px 0 2px;padding-top:18px;border-top:1px solid var(--border);line-height:1.4;}
   .dualselect-wrap{display:flex;gap:18px;}
@@ -63,7 +63,7 @@
     <div class="card">
       <div class="qtext">SMB Confidence &amp; Growth Study</div>
       <div class="intro-text">Inc. Business Media is conducting this survey about small and mid-sized companies (SMBs) on behalf of a leading financial firm. We are interested in learning about SMB leaders' confidence in the economic environment and business growth, capital investment plans, technology implementation and decision-making. Thank you in advance for your time and interest in our study. All results will be reported in aggregate only.</div>
-      <div class="nav"><span></span><button class="btn-next" onclick="startSurvey()">Begin Survey</button></div>
+      <div class="nav"><span></span><button class="btn-next" id="btnBegin" onclick="startSurvey()">Begin Survey</button></div>
     </div>
   </div>
 
@@ -471,6 +471,15 @@ function htmlesc(s){
   return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+// Races a fetch promise against a timeout so a slow/unreachable backend
+// never leaves the respondent staring at a blank or frozen screen.
+function withTimeout(promise, ms){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=>setTimeout(()=>reject(new Error("timeout")), ms))
+  ]);
+}
+
 function startSurvey(){
   if(isOpenLink){
     // Universal link: skip all lock checks, every visitor gets a fresh ref.
@@ -483,14 +492,23 @@ function startSurvey(){
 }
 
 async function checkLockThenStart(){
+  const btn = document.getElementById("btnBegin");
+  if(btn){ btn.disabled = true; btn.textContent = "Loading..."; }
+
   try{
-    const res = await fetch(SCRIPT_URL + "?action=checkLock&ref=" + encodeURIComponent(ref));
+    const res = await withTimeout(
+      fetch(SCRIPT_URL + "?action=checkLock&ref=" + encodeURIComponent(ref)),
+      6000
+    );
     const data = await res.json();
     if(data && data.used){
       showEnd("This link has already been used", "If you believe this is an error, please contact the research team.");
       return;
     }
-  }catch(e){ /* fail open if lock check errors, local lock still applies below */ }
+  }catch(e){ /* fail open if lock check errors or times out, local lock still applies below */ }
+  finally{
+    if(btn){ btn.disabled = false; btn.textContent = "Begin Survey"; }
+  }
 
   if(localStorage.getItem("survey_used_" + ref)){
     showEnd("This link has already been used", "If you believe this is an error, please contact the research team.");
@@ -524,17 +542,27 @@ function renderQuestion(){
   const body = document.getElementById("qBody");
   body.innerHTML = "";
 
-  switch(q.type){
-    case "single": renderSingle(q, body); break;
-    case "multi": renderMulti(q, body); break;
-    case "dropdown": renderDropdown(q, body); break;
-    case "grid": renderGrid(q, body); break;
-    case "dualgrid": renderDualGrid(q, body); break;
-    case "dualselect": renderDualSelect(q, body); break;
-    case "dualmulti": renderDualMulti(q, body); break;
-    case "dualscale": renderDualScale(q, body); break;
-    case "multigrid": renderMultiGrid(q, body); break;
-    case "open": renderOpen(q, body); break;
+  try{
+    switch(q.type){
+      case "single": renderSingle(q, body); break;
+      case "multi": renderMulti(q, body); break;
+      case "dropdown": renderDropdown(q, body); break;
+      case "grid": renderGrid(q, body); break;
+      case "dualgrid": renderDualGrid(q, body); break;
+      case "dualselect": renderDualSelect(q, body); break;
+      case "dualmulti": renderDualMulti(q, body); break;
+      case "dualscale": renderDualScale(q, body); break;
+      case "multigrid": renderMultiGrid(q, body); break;
+      case "open": renderOpen(q, body); break;
+    }
+  }catch(err){
+    // Never leave a blank screen - show a recoverable message instead of a silent failure.
+    body.innerHTML = "";
+    const msg = document.createElement("div");
+    msg.style.color = "var(--muted)";
+    msg.style.fontSize = "14px";
+    msg.textContent = "This question didn't load correctly. Please use Back and try again, or refresh the page.";
+    body.appendChild(msg);
   }
 }
 
@@ -584,9 +612,6 @@ function renderOtherBoxIfNeeded(q, body, selectedCode){
 
 function renderMulti(q, body){
   const wrap = document.createElement("div"); wrap.className="options";
-  const note = document.createElement("div"); note.className="maxnote";
-  note.textContent = "Select up to " + q.max;
-  body.appendChild(note);
   const sel = answers[q.id] || [];
   q.options.forEach(opt=>{
     const checked = sel.includes(opt.code);
@@ -698,8 +723,6 @@ function buildSimpleGrid(qid, part, rows, store){
 
 function renderMultiGrid(q, body){
   if(!answers[q.id]) answers[q.id] = {sel:[], ratings:{}};
-  const note = document.createElement("div"); note.className="maxnote"; note.textContent="Select up to "+q.max;
-  body.appendChild(note);
   const wrap = document.createElement("div"); wrap.className="options";
   q.options.forEach(opt=>{
     const checked = (answers[q.id].sel||[]).includes(opt.code);
@@ -956,14 +979,20 @@ function buildFlatRows(status){
 }
 
 async function finishSurvey(status){
+  const btn = document.getElementById("btnNext");
+  if(btn){ btn.disabled = true; btn.textContent = "Submitting..."; }
+
   const {labels, values} = buildFlatRows(status);
   try{
-    await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: {"Content-Type":"text/plain;charset=utf-8"},
-      body: JSON.stringify({action:"submit", status, ref, labelsRow: labels, valuesRow: values}),
-    });
-  }catch(e){ /* network errors should not block showing an end screen */ }
+    await withTimeout(
+      fetch(SCRIPT_URL, {
+        method: "POST",
+        headers: {"Content-Type":"text/plain;charset=utf-8"},
+        body: JSON.stringify({action:"submit", status, ref, labelsRow: labels, valuesRow: values}),
+      }),
+      8000
+    );
+  }catch(e){ /* network errors/timeouts should not block showing an end screen; the request was already sent */ }
 
   localStorage.setItem("survey_used_" + ref, "1");
 
