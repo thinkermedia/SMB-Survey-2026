@@ -81,6 +81,17 @@
     </div>
   </div>
 
+  <div id="screen-email" class="screen">
+    <div class="card">
+      <div class="qtext">Share your email to be entered into a random drawing for one of five $100 gift cards. Winners will be notified by email, and your contact information will not be shared with any third party.</div>
+      <div style="margin-top:18px;">
+        <label for="emailInput" style="display:block;font-size:13px;color:var(--muted);margin-bottom:6px;">Enter your email here</label>
+        <input type="email" id="emailInput" placeholder="you@company.com" style="width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:9px;font-size:15px;font-family:inherit;">
+      </div>
+      <div class="nav"><span></span><button class="btn-next" id="btnEmailSubmit" onclick="submitEmailAndFinish()">Submit</button></div>
+    </div>
+  </div>
+
   <div id="screen-end" class="screen">
     <div class="end-wrap">
       <h2 id="endTitle">Thank you</h2>
@@ -999,8 +1010,29 @@ async function finishSurvey(status){
   if(status === "terminate" || status === "excluded"){
     showEnd("Thank you for your interest", "At this time, you don't qualify for this particular survey. We appreciate you taking the time to start it.");
   } else {
-    showEnd("Thank you!", "Your responses have been recorded. We appreciate your time and insights.");
+    showScreen("screen-email");
   }
+}
+
+async function submitEmailAndFinish(){
+  const btn = document.getElementById("btnEmailSubmit");
+  const email = document.getElementById("emailInput").value.trim();
+  if(btn){ btn.disabled = true; btn.textContent = "Submitting..."; }
+
+  if(email){
+    try{
+      await withTimeout(
+        fetch(SCRIPT_URL, {
+          method: "POST",
+          headers: {"Content-Type":"text/plain;charset=utf-8"},
+          body: JSON.stringify({action:"submitEmail", ref, email}),
+        }),
+        8000
+      );
+    }catch(e){ /* network errors/timeouts should not block showing the end screen */ }
+  }
+
+  showEnd("Thank you!", "Your responses have been recorded. We appreciate your time and insights.");
 }
 
 function showEnd(title, msg){
